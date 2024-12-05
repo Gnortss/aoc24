@@ -2,8 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <map>
+#include <set>
 #include <vector>
 #include <string.h>
+#include <algorithm>
 
 using namespace std;
 
@@ -39,8 +41,7 @@ struct input_t {
 
 int main() {
     auto input = input_t();
-    map<int,vector<int>> m_after; // all values need to be after key
-    map<int,vector<int>> m_before; // all values need to be before key
+    map<int,set<int>> m_after; // all values need to be after key
 
     auto insert_into_map = [](map<int,vector<int>> *m, int k, int val) {
         map<int,vector<int>>::iterator it;
@@ -64,8 +65,7 @@ int main() {
             int fi = input.line.find("|");
             auto k = stoi(input.line.substr(0, fi));
             auto v = stoi(input.line.substr(fi+1, input.line.size()-fi-2));
-            insert_into_map(&m_after, k, v);
-            insert_into_map(&m_before, v, k);
+            m_after[k].insert(v);
         }
         if (phase == 1) {
             vector<int> numbers;
@@ -87,15 +87,7 @@ int main() {
 
             auto check_before_not_valid = [&](int number_index) {
                 for(int i = number_index; i > 0; i--) {
-                    if (vector_contains(m_after[numbers[number_index]], numbers[i]))
-                        return true;
-                }
-                return false;
-            };
-
-            auto check_after_not_valid = [&](int number_index) {
-                for(int i = number_index; i < numbers.size(); i++) {
-                    if (vector_contains(m_before[numbers[number_index]], numbers[i]))
+                    if (m_after[numbers[number_index]].count(numbers[i]))
                         return true;
                 }
                 return false;
@@ -105,8 +97,7 @@ int main() {
             for(int i = 0; i < numbers.size(); i++) {
                 // for each number check:
                 //  anything before it must not be in m_after[number]
-                //  anything after it must not be in m_before[number]
-                if (check_before_not_valid(i) || check_after_not_valid(i)) {
+                if (check_before_not_valid(i)) {
                     valid_order = false;
                     break;
                 }
@@ -114,8 +105,12 @@ int main() {
             if(valid_order) {
                 // cout << numbers[numbers.size()/2] << endl;
                 sum1 += numbers[numbers.size()/2];
+            } else {
+                sort(numbers.begin(), numbers.end(), [&](int a, int b){return m_after[a].count(b) > 0;});
+                sum2 += numbers[numbers.size()/2];
             }
         }
     }
     cout << sum1 << endl;
+    cout << sum2 << endl;
 }
