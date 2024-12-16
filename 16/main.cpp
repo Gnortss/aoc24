@@ -54,45 +54,75 @@ enum Dir {
 };
 
 typedef pair<int, pair<pair<int, int>, Dir>> node_type;
+struct Node {
+    int score;
+    pair<int, int> pos;
+    Dir dir;
+    vector<pair<int,int>> path;
 
-auto cmp = [](node_type l, node_type r) { return l.first > r.first; }; // for min queue
+    Node(int _score, pair<int, int> _pos, Dir _dir, vector<pair<int,int>> _path={}) {
+        score = _score;
+        pos = _pos;
+        dir = _dir;
+        path = _path;
+        path.push_back(_pos);
+    }
+};
 
-vector<node_type> get_next_(vector<vector<char>> &M, node_type node) {
-    vector<node_type> ret;
+auto cmp = [](Node l, Node r) { return l.score > r.score; }; // for min queue
 
-    pair<int, int> pos = node.second.first;
+vector<Node> get_next_(vector<vector<char>> &M, Node *node) {
+    vector<Node> ret;
+
+    pair<int, int> pos = node->pos;
     pair<int, int> next_pos;
-    switch(node.second.second) {
+    switch(node->dir) {
         case NORTH: next_pos = {pos.first - 1, pos.second}; break;
         case SOUTH: next_pos = {pos.first + 1, pos.second}; break;
         case EAST: next_pos = {pos.first, pos.second + 1}; break;
         case WEST: next_pos = {pos.first, pos.second - 1}; break;
     }
 
-    if (M[next_pos.first][next_pos.second] != '#') ret.push_back({node.first + 1, {next_pos, node.second.second}}); // move in the direction
+    if (M[next_pos.first][next_pos.second] != '#')  {
+        ret.push_back(Node(node->score + 1, next_pos, node->dir, node->path)); // move in the direction
+    }
 
     // turn left/right
-    Dir left = static_cast<Dir>((static_cast<int>(node.second.second) - 1 + 4)%4);
-    Dir right = static_cast<Dir>((static_cast<int>(node.second.second) + 1 + 4)%4);
-    ret.push_back({node.first + 1000, {pos, left}});
-    ret.push_back({node.first + 1000, {pos, right}});
+    Dir left = static_cast<Dir>((static_cast<int>(node->dir) - 1 + 4)%4);
+    Dir right = static_cast<Dir>((static_cast<int>(node->dir) + 1 + 4)%4);
+    ret.push_back(Node(node->score + 1000, pos, left, node->path));
+    ret.push_back(Node(node->score + 1000, pos, right, node->path));
 
     return ret;
 }
 
-int search_(vector<vector<char>> &M, map<pair<pair<int, int>, Dir>, int> &visited, priority_queue<node_type, vector<node_type>, decltype(cmp)> &queue) {
+pair<int, int> search_(vector<vector<char>> &M, map<pair<pair<int, int>, Dir>, int> &visited, priority_queue<Node, vector<Node>, decltype(cmp)> &queue) {
+    int min_score = -1;
+    set<pair<int,int>> unique;
+    vector<Node> all;
     while(queue.size()) {
         auto node = queue.top();
-        visited[node.second] = node.first;
-        auto pos = node.second.first;
-        if (M[pos.first][pos.second] == 'E') return node.first;
-        for(auto &n : get_next_(M, node)) {
-            if (visited.count(n.second) == 0 || visited[n.second] > n.first) // valid only if not yet visited or we have found a faster way to this node (lower score)
+
+        visited[{node.pos, node.dir}] = node.score;
+        auto pos = node.pos;
+        // if (M[pos.first][pos.second] == 'E') return {node.score, 0}; // p1
+        if (M[pos.first][pos.second] == 'E') {
+            if (min_score == -1) min_score = node.score;
+            if (min_score == node.score) {
+                for(pair<int, int> pos : node.path) {
+                    unique.insert(pos);
+                }
+            }
+        }
+        for(auto &n : get_next_(M, &node)) {
+            if (min_score != -1 && n.score > min_score) continue;
+            if (visited.count({n.pos, n.dir}) == 0 || visited[{n.pos, n.dir}] >= n.score) // valid only if not yet visited or we have found a faster way to this node (lower score)
                 queue.push(n);
         }
 
         queue.pop();
     }
+    return {min_score, unique.size()};
 }
 
 auto find_start = [](vector<vector<char>> &M) -> pair<int, int> {
@@ -105,12 +135,10 @@ auto find_start = [](vector<vector<char>> &M) -> pair<int, int> {
 };
 
 int main() {
-
     auto input = input_t();
-
     vector<vector<char>> M;
     map<pair<pair<int, int>, Dir>, int> visited;
-    priority_queue<node_type, vector<node_type>, decltype(cmp)> queue(cmp);
+    priority_queue<Node, vector<Node>, decltype(cmp)> queue(cmp);
     // queue.push({10, {{0,0}, EAST}});
 
     while (input.next()) {
@@ -120,13 +148,7 @@ int main() {
         M.push_back(row);
     }
 
-    queue.push({0, {find_start(M), EAST}});
-    int p1 = search_(M, visited, queue);
-    cout << p1 << endl;
-    // for(auto &r: M) {
-    //     for(auto &c: r) {
-    //         cout << c;
-    //     }
-    //     cout << endl;
-    // }
+    queue.push(Node(0, find_start(M), EAST));
+    pair<int, int> solution = search_(M, visited, queue);
+    std::cout << solution.first << " " << solution.second << endl;
 }
